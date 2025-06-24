@@ -128,11 +128,6 @@ COPY --from=bcrypt-tool /tmp/go/bin/bcrypt-tool /usr/bin/
 COPY --from=certbot /tmp/certbot-install/ /
 COPY --from=cs-openresty-bouncer /tmp/crowdsec-openresty-bouncer-install/ /
 
-# Fix permissions for service dependency files (required by baseimage 3.6.5+)
-RUN ls -la /etc/services.d/app/ /etc/services.d/default/ && \
-    chmod +x /etc/services.d/app/nginx.dep /etc/services.d/default/cert_cleanup.dep && \
-    ls -la /etc/services.d/app/nginx.dep /etc/services.d/default/cert_cleanup.dep
-
 # Set internal environment variables.
 RUN \
     set-cont-env APP_NAME "Nginx Proxy Manager" && \
@@ -143,6 +138,9 @@ RUN \
 # Set public environment variables.
 ENV \
     DISABLE_IPV6=0
+
+# Fix permissions for service dependency files (required by baseimage 3.6.5+)
+RUN find /etc -name "*.dep" -type f -exec chmod +x {} \; 2>/dev/null || true
 
 # Expose ports.
 #   - 8080: HTTP traffic

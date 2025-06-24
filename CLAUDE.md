@@ -27,13 +27,16 @@ The project uses a multi-stage Dockerfile with these build stages:
 
 ### Build Commands
 ```bash
-# Build the Docker image locally
-docker build -t lepresidente/nginx-proxy-manager .
+# Build the Docker image locally (on amd64)
+docker build -t napopa/nginx-proxy-manager .
 
 # Build with specific version args
-docker build --build-arg NGINX_PROXY_MANAGER_VERSION=2.12.1 \
+docker build --build-arg NGINX_PROXY_MANAGER_VERSION=2.12.3 \
              --build-arg CROWDSEC_OPENRESTY_BOUNCER_VERSION=1.0.5 \
-             -t lepresidente/nginx-proxy-manager .
+             --build-arg OPENRESTY_VERSION=1.27.1.2 \
+             -t napopa/nginx-proxy-manager .
+
+# Note: No cross-compilation needed - build directly on amd64/Linux
 ```
 
 ### Component Build Scripts
@@ -69,8 +72,8 @@ Each component has its own build script in `src/`:
 ### CI/CD Pipeline
 GitHub Actions workflow (`.github/workflows/build-image.yml`):
 - Triggers on push to any branch and tags
-- Builds multi-platform images (amd64, arm64, arm/v6, arm/v7, 386)
-- Pushes to Docker Hub on tagged releases
+- Builds for linux/amd64 platform only (simplified for direct deployment)
+- Pushes to both Docker Hub and GitHub Container Registry on tagged releases
 - Updates Docker Hub description
 
 ### Testing Container
@@ -82,7 +85,7 @@ docker run -d \
     -p 8080:8080 \
     -p 4443:4443 \
     -v ./config:/config:rw \
-    lepresidente/nginx-proxy-manager
+    napopa/nginx-proxy-manager
 
 # Check logs
 docker logs nginx-proxy-manager-test
@@ -109,10 +112,11 @@ API_KEY=<api-key-from-cscli-bouncers-add>
 
 ## Version Information
 
-- **Current NPM Version**: 2.12.1
-- **OpenResty Version**: 1.27.1.1  
-- **CrowdSec Bouncer Version**: 1.0.5
-- **Base Image**: Alpine 3.16
+- **Current NPM Version**: 2.12.3 (latest)
+- **OpenResty Version**: 1.27.1.2 (latest)
+- **CrowdSec Bouncer Version**: 1.0.5 (latest)
+- **Base Image**: Alpine 3.18 (updated from 3.16)
+- **Python Cryptography**: 43.0.0-py3.11 (updated from py3.10)
 
 ## Default Credentials
 
@@ -120,3 +124,7 @@ API_KEY=<api-key-from-cscli-bouncers-add>
 - **Password**: changeme
 
 Change these immediately after first login.
+
+## Build Notes
+
+- You don't need to cross compile!! I will compile on amd64 myself

@@ -129,7 +129,9 @@ COPY --from=certbot /tmp/certbot-install/ /
 COPY --from=cs-openresty-bouncer /tmp/crowdsec-openresty-bouncer-install/ /
 
 # Fix permissions for service dependency files (required by baseimage 3.6.5+)
-RUN find /etc/services.d -name "*.dep" -exec chmod +x {} \;
+RUN ls -la /etc/services.d/app/ /etc/services.d/default/ && \
+    chmod +x /etc/services.d/app/nginx.dep /etc/services.d/default/cert_cleanup.dep && \
+    ls -la /etc/services.d/app/nginx.dep /etc/services.d/default/cert_cleanup.dep
 
 # Set internal environment variables.
 RUN \

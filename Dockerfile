@@ -128,6 +128,9 @@ COPY --from=bcrypt-tool /tmp/go/bin/bcrypt-tool /usr/bin/
 COPY --from=certbot /tmp/certbot-install/ /
 COPY --from=cs-openresty-bouncer /tmp/crowdsec-openresty-bouncer-install/ /
 
+# Fix permissions for service dependency files (required by baseimage 3.6.5+)
+RUN find /etc/services.d -name "*.dep" -exec chmod +x {} \;
+
 # Set internal environment variables.
 RUN \
     set-cont-env APP_NAME "Nginx Proxy Manager" && \

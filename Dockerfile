@@ -83,7 +83,7 @@ RUN \
     find /tmp/certbot-install/usr/lib/python3.11/site-packages -type d -name tests -print0 | xargs -0 rm -r
 
 # Build cs-openresty-boucner.
-FROM alpine:3.16 AS cs-openresty-bouncer
+FROM alpine:3.18 AS cs-openresty-bouncer
 ARG TARGETPLATFORM
 ARG CROWDSEC_OPENRESTY_BOUNCER_URL
 COPY --from=xx / /

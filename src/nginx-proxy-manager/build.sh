@@ -89,7 +89,10 @@ log "Building Nginx Proxy Manager frontend..."
 (
     export NODE_OPTIONS=--openssl-legacy-provider
     cd /app/frontend
+    # Install dependencies
     yarn install --network-timeout 100000
+    # Force rebuild of native modules for target platform
+    npm rebuild node-sass --arch=$(xx-info arch)
     yarn build
     node-prune
 )

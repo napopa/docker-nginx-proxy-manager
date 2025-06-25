@@ -128,3 +128,9 @@ Change these immediately after first login.
 ## Build Notes
 
 - You don't need to cross compile!! I will compile on amd64 myself
+- Do not rely on cross compiling the image locally for amd64
+- You can try and build the image locally for arm64 and run it locally on arm64 to test changes, but never try to cross build
+
+## Troubleshooting
+
+- If you find building problems due to architecture, do not try to fix them and commit to the repos, since the image builds fine on amd64 which is its final target

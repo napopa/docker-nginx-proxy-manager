@@ -89,6 +89,7 @@ log "Building Nginx Proxy Manager frontend..."
 (
     export NODE_OPTIONS=--openssl-legacy-provider
     cd /app/frontend
+    yarn upgrade --wanted
     yarn install --network-timeout 100000
     yarn build
     node-prune
@@ -108,6 +109,7 @@ log "Building Nginx Proxy Manager backend..."
     cd /app/backend
     # Use NPM instead of yarn because yarn doesn't seem to be able to install
     # for another achitecture.  Note that NPM install should also use yarn.lock.
+    yarn upgrade --wanted
     npm install --legacy-peer-deps --omit=dev --omit=optional --target_platform=linux --target_arch=$ARCH
     node-prune
     rm -rf /app/backend/node_modules/sqlite3/build

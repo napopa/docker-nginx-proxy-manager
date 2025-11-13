@@ -91,7 +91,7 @@ COPY src/cs-openresty-bouncer /build
 RUN /build/build.sh "$CROWDSEC_OPENRESTY_BOUNCER_URL"
 
 # Pull base image.
-FROM jlesage/baseimage:alpine-3.18-v3.7.1
+FROM jlesage/baseimage:alpine-3.18-v3.8.0
 
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG DOCKER_IMAGE_VERSION

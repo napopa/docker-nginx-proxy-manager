@@ -2,12 +2,12 @@ diff --git a/backend/lib/certbot.js b/backend/lib/certbot.js
 index 96d94710..4dc24d71 100644
 --- a/backend/lib/certbot.js
 +++ b/backend/lib/certbot.js
-@@ -63,7 +63,7 @@
- 			env = Object.assign(env, plugin.env);
- 		}
- 
--		const cmd = `. /opt/certbot/bin/activate && pip install --no-cache-dir ${plugin.dependencies} ${plugin.package_name}${plugin.version}  && deactivate`;
-+		const cmd = `pip install --no-cache-dir ${plugin.dependencies} ${plugin.package_name}${plugin.version}`;
- 		return utils.exec(cmd, {env})
- 			.then((result) => {
- 				logger.complete(`Installed ${pluginKey}`);
+@@ -32,7 +32,7 @@ const installPlugin = async (pluginKey) => {
+ 		env = Object.assign(env, plugin.env);
+ 	}
+
+-	const cmd = `. /opt/certbot/bin/activate && pip install --no-cache-dir ${plugin.dependencies} ${plugin.package_name}${plugin.version}  && deactivate`;
++	const cmd = 'pip install --no-cache-dir ' + plugin.dependencies + ' ' + plugin.package_name + plugin.version;
+ 	return utils
+ 		.exec(cmd, { env })
+ 		.then((result) => {

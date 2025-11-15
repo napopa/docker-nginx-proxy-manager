@@ -69,9 +69,21 @@ curl -# -L -f ${NGINX_PROXY_MANAGER_URL} | tar xz --strip 1 -C /tmp/nginx-proxy-
 # Compile
 #
 
-# Set the NginxProxyManager version.
-sed -i "s/\"version\": \"0.0.0\",/\"version\": \"${NGINX_PROXY_MANAGER_VERSION}\",/" /tmp/nginx-proxy-manager/frontend/package.json
-sed -i "s/\"version\": \"0.0.0\",/\"version\": \"${NGINX_PROXY_MANAGER_VERSION}\",/" /tmp/nginx-proxy-manager/backend/package.json
+# Set the NginxProxyManager version in both package manifests.
+for pkg_dir in frontend backend; do
+    python3 - "$pkg_dir" "$NGINX_PROXY_MANAGER_VERSION" <<'PY'
+import json
+import pathlib
+import sys
+
+pkg_dir, version = sys.argv[1:]
+path = pathlib.Path("/tmp/nginx-proxy-manager") / pkg_dir / "package.json"
+with path.open() as fh:
+    data = json.load(fh)
+data["version"] = version
+path.write_text(json.dumps(data, indent=4) + "\n")
+PY
+done
 
 log "Patching Nginx Proxy Manager backend..."
 PATCHES="
@@ -89,8 +101,8 @@ log "Building Nginx Proxy Manager frontend..."
 (
     export NODE_OPTIONS=--openssl-legacy-provider
     cd /app/frontend
-    yarn upgrade --wanted
-    yarn install --network-timeout 100000
+    yarn upgrade --wanted --ignore-engines
+    yarn install --network-timeout 100000 --ignore-engines
     yarn build
     node-prune
 )
@@ -109,10 +121,9 @@ log "Building Nginx Proxy Manager backend..."
     cd /app/backend
     # Use NPM instead of yarn because yarn doesn't seem to be able to install
     # for another achitecture.  Note that NPM install should also use yarn.lock.
-    yarn upgrade --wanted
+    yarn upgrade --wanted --ignore-engines
     npm install --legacy-peer-deps --omit=dev --omit=optional --target_platform=linux --target_arch=$ARCH
     node-prune
-    rm -rf /app/backend/node_modules/sqlite3/build
 )
 
 log "Installing Nginx Proxy Manager..."
@@ -129,7 +140,11 @@ mkdir \
 
 cp -rv /app/backend $ROOTFS/opt/nginx-proxy-manager
 cp -rv /app/frontend/dist $ROOTFS/opt/nginx-proxy-manager/frontend
-cp -rv /app/global $ROOTFS/opt/nginx-proxy-manager/global
+if [ -d /app/global ]; then
+    cp -rv /app/global $ROOTFS/opt/nginx-proxy-manager/global
+else
+    mkdir -p $ROOTFS/opt/nginx-proxy-manager/global
+fi
 
 mkdir $ROOTFS/opt/nginx-proxy-manager/bin
 cp -rv /tmp/nginx-proxy-manager/docker/rootfs/etc/nginx $ROOTFS/etc/

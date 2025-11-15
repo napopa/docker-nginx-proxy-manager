@@ -31,7 +31,7 @@ FROM moonbuggy2000/python-musl-wheels:cryptography43.0.0-py3.11-${TARGETARCH}${T
 # Get UPX (statically linked).
 # NOTE: UPX 5.x is not compatible with old kernels, e.g. 3.10 used by some
 #       Synology NASes. See https://github.com/upx/upx/issues/902
-FROM --platform=$BUILDPLATFORM alpine:3.20 AS upx
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS upx
 ARG UPX_VERSION=4.2.4
 RUN apk --no-cache add curl && \
     mkdir /tmp/upx && \
@@ -39,7 +39,7 @@ RUN apk --no-cache add curl && \
     cp -v /tmp/upx/upx /usr/bin/upx
 
 # Build Nginx Proxy Manager.
-FROM --platform=$BUILDPLATFORM alpine:3.18 AS npm
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS npm
 ARG TARGETPLATFORM
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG NGINX_PROXY_MANAGER_URL
@@ -48,7 +48,7 @@ COPY src/nginx-proxy-manager /build
 RUN /build/build.sh "$NGINX_PROXY_MANAGER_VERSION" "$NGINX_PROXY_MANAGER_URL"
 
 # Build OpenResty (nginx).
-FROM --platform=$BUILDPLATFORM alpine:3.18 AS nginx
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS nginx
 ARG TARGETPLATFORM
 ARG OPENRESTY_URL
 ARG NGINX_HTTP_GEOIP2_MODULE_URL
@@ -59,7 +59,7 @@ RUN /build/build.sh "$OPENRESTY_URL" "$NGINX_HTTP_GEOIP2_MODULE_URL" "$LIBMAXMIN
 RUN xx-verify /tmp/openresty-install/usr/sbin/nginx
 
 # Build bcrypt-tool.
-FROM --platform=$BUILDPLATFORM alpine:3.18 AS bcrypt-tool
+FROM --platform=$BUILDPLATFORM alpine:3.22 AS bcrypt-tool
 ARG TARGETPLATFORM
 ARG BCRYPT_TOOL_VERSION
 COPY --from=xx / /
@@ -70,20 +70,22 @@ COPY --from=upx /usr/bin/upx /usr/bin/upx
 RUN upx /tmp/go/bin/bcrypt-tool
 
 # Build certbot.
-FROM alpine:3.18 AS certbot
+FROM alpine:3.22 AS certbot
 COPY --from=mod_cryptography / /wheels
 RUN \
     apk --no-cache add build-base curl python3 && \
-    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3 && \
-    pip install --no-cache-dir --root=/tmp/certbot-install --prefix=/usr --find-links /wheels/ --prefer-binary --only-binary=:all: certbot && \
-    find /tmp/certbot-install/usr/lib/python3.11/site-packages -type f -name "*.so" -exec strip {} ';' && \
-    find /tmp/certbot-install/usr/lib/python3.11/site-packages -type f -name "*.h" -delete && \
-    find /tmp/certbot-install/usr/lib/python3.11/site-packages -type f -name "*.c" -delete && \
-    find /tmp/certbot-install/usr/lib/python3.11/site-packages -type f -name "*.exe" -delete && \
-    find /tmp/certbot-install/usr/lib/python3.11/site-packages -type d -name tests -print0 | xargs -0 rm -r
+    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3 - --break-system-packages && \
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip install --no-cache-dir --root=/tmp/certbot-install --prefix=/usr --find-links /wheels/ --prefer-binary --only-binary=:all: certbot && \
+    PY_SITE=$(python3 -c 'import sysconfig; print(sysconfig.get_path("purelib"))') && \
+    SITE_DIR="/tmp/certbot-install${PY_SITE}" && \
+    find "${SITE_DIR}" -type f -name "*.so" -exec strip {} ';' && \
+    find "${SITE_DIR}" -type f -name "*.h" -delete && \
+    find "${SITE_DIR}" -type f -name "*.c" -delete && \
+    find "${SITE_DIR}" -type f -name "*.exe" -delete && \
+    find "${SITE_DIR}" -type d -name tests -print0 | xargs -0 rm -r
 
 # Build cs-openresty-boucner.
-FROM alpine:3.18 AS cs-openresty-bouncer
+FROM alpine:3.22 AS cs-openresty-bouncer
 ARG TARGETPLATFORM
 ARG CROWDSEC_OPENRESTY_BOUNCER_URL
 COPY --from=xx / /
@@ -91,7 +93,7 @@ COPY src/cs-openresty-bouncer /build
 RUN /build/build.sh "$CROWDSEC_OPENRESTY_BOUNCER_URL"
 
 # Pull base image.
-FROM jlesage/baseimage:alpine-3.18-v3.8.0
+FROM jlesage/baseimage:alpine-3.22-v3.10.0
 
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG DOCKER_IMAGE_VERSION
@@ -120,7 +122,7 @@ RUN \
     #       Certbot plugins. Thus, we need to manually install pip (with its
     #       built-in dependencies). See:
     #       https://pip.pypa.io/en/stable/development/vendoring-policy/
-    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3
+    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3 - --break-system-packages
 
 # Add files.
 COPY rootfs/ /

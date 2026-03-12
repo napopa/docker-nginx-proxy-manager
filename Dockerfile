@@ -8,11 +8,12 @@
 ARG DOCKER_IMAGE_VERSION=
 
 # Define software versions.
-ARG OPENRESTY_VERSION=1.27.1.1
-ARG NGINX_PROXY_MANAGER_VERSION=2.13.4
+ARG OPENRESTY_VERSION=1.27.1.2
+ARG NGINX_PROXY_MANAGER_VERSION=2.14.0
 ARG NGINX_HTTP_GEOIP2_MODULE_VERSION=3.3
 ARG LIBMAXMINDDB_VERSION=1.5.0
 ARG BCRYPT_TOOL_VERSION=1.1.2
+ARG CERTBOT_VERSION=5.3.1
 ARG CROWDSEC_OPENRESTY_BOUNCER_VERSION=1.1.0
 
 # Define software download URLs.
@@ -31,7 +32,7 @@ FROM moonbuggy2000/python-musl-wheels:cryptography43.0.0-py3.11-${TARGETARCH}${T
 # Get UPX (statically linked).
 # NOTE: UPX 5.x is not compatible with old kernels, e.g. 3.10 used by some
 #       Synology NASes. See https://github.com/upx/upx/issues/902
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS upx
+FROM --platform=$BUILDPLATFORM alpine:3.23 AS upx
 ARG UPX_VERSION=4.2.4
 RUN apk --no-cache add curl && \
     mkdir /tmp/upx && \
@@ -39,7 +40,7 @@ RUN apk --no-cache add curl && \
     cp -v /tmp/upx/upx /usr/bin/upx
 
 # Build Nginx Proxy Manager.
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS npm
+FROM --platform=$BUILDPLATFORM alpine:3.23 AS npm
 ARG TARGETPLATFORM
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG NGINX_PROXY_MANAGER_URL
@@ -48,7 +49,7 @@ COPY src/nginx-proxy-manager /build
 RUN /build/build.sh "$NGINX_PROXY_MANAGER_VERSION" "$NGINX_PROXY_MANAGER_URL"
 
 # Build OpenResty (nginx).
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS nginx
+FROM --platform=$BUILDPLATFORM alpine:3.23 AS nginx
 ARG TARGETPLATFORM
 ARG OPENRESTY_URL
 ARG NGINX_HTTP_GEOIP2_MODULE_URL
@@ -59,7 +60,7 @@ RUN /build/build.sh "$OPENRESTY_URL" "$NGINX_HTTP_GEOIP2_MODULE_URL" "$LIBMAXMIN
 RUN xx-verify /tmp/openresty-install/usr/sbin/nginx
 
 # Build bcrypt-tool.
-FROM --platform=$BUILDPLATFORM alpine:3.22 AS bcrypt-tool
+FROM --platform=$BUILDPLATFORM alpine:3.23 AS bcrypt-tool
 ARG TARGETPLATFORM
 ARG BCRYPT_TOOL_VERSION
 COPY --from=xx / /
@@ -70,7 +71,7 @@ COPY --from=upx /usr/bin/upx /usr/bin/upx
 RUN upx /tmp/go/bin/bcrypt-tool
 
 # Build certbot.
-FROM alpine:3.22 AS certbot
+FROM alpine:3.23 AS certbot
 COPY --from=mod_cryptography / /wheels
 RUN \
     apk --no-cache add build-base curl python3 && \
@@ -85,7 +86,7 @@ RUN \
     find "${SITE_DIR}" -type d -name tests -print0 | xargs -0 rm -r
 
 # Build cs-openresty-boucner.
-FROM alpine:3.22 AS cs-openresty-bouncer
+FROM alpine:3.23 AS cs-openresty-bouncer
 ARG TARGETPLATFORM
 ARG CROWDSEC_OPENRESTY_BOUNCER_URL
 COPY --from=xx / /
@@ -93,7 +94,7 @@ COPY src/cs-openresty-bouncer /build
 RUN /build/build.sh "$CROWDSEC_OPENRESTY_BOUNCER_URL"
 
 # Pull base image.
-FROM jlesage/baseimage:alpine-3.22-v3.10.0
+FROM jlesage/baseimage:alpine-3.23-v3.10.4
 
 ARG NGINX_PROXY_MANAGER_VERSION
 ARG DOCKER_IMAGE_VERSION

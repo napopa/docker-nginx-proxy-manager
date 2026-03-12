@@ -26,9 +26,6 @@ ARG LIBMAXMINDDB_URL=https://github.com/maxmind/libmaxminddb/releases/download/$
 # Get Dockerfile cross-compilation helpers.
 FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
 
-# Get Python cryptography wheel. It is needed for certbot.
-FROM moonbuggy2000/python-musl-wheels:cryptography43.0.0-py3.11-${TARGETARCH}${TARGETVARIANT} AS mod_cryptography
-
 # Get UPX (statically linked).
 # NOTE: UPX 5.x is not compatible with old kernels, e.g. 3.10 used by some
 #       Synology NASes. See https://github.com/upx/upx/issues/902
@@ -70,20 +67,13 @@ RUN xx-verify /tmp/go/bin/bcrypt-tool
 COPY --from=upx /usr/bin/upx /usr/bin/upx
 RUN upx /tmp/go/bin/bcrypt-tool
 
-# Build certbot.
+# Build certbot and its plugins.
 FROM alpine:3.23 AS certbot
-COPY --from=mod_cryptography / /wheels
-RUN \
-    apk --no-cache add build-base curl python3 && \
-    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3 - --break-system-packages && \
-    PIP_BREAK_SYSTEM_PACKAGES=1 pip install --no-cache-dir --root=/tmp/certbot-install --prefix=/usr --find-links /wheels/ --prefer-binary --only-binary=:all: certbot && \
-    PY_SITE=$(python3 -c 'import sysconfig; print(sysconfig.get_path("purelib"))') && \
-    SITE_DIR="/tmp/certbot-install${PY_SITE}" && \
-    find "${SITE_DIR}" -type f -name "*.so" -exec strip {} ';' && \
-    find "${SITE_DIR}" -type f -name "*.h" -delete && \
-    find "${SITE_DIR}" -type f -name "*.c" -delete && \
-    find "${SITE_DIR}" -type f -name "*.exe" -delete && \
-    find "${SITE_DIR}" -type d -name tests -print0 | xargs -0 rm -r
+ARG TARGETPLATFORM
+ARG CERTBOT_VERSION
+COPY --from=npm /tmp/nginx-proxy-manager-install/opt/nginx-proxy-manager/certbot/dns-plugins.json /build/
+COPY src/certbot /build
+RUN /build/build.sh "$CERTBOT_VERSION" /build/dns-plugins.json
 
 # Build cs-openresty-boucner.
 FROM alpine:3.23 AS cs-openresty-bouncer
@@ -110,27 +100,21 @@ RUN \
         python3 \
         sqlite \
         openssl \
-        # For /opt/nginx-proxy-manager/bin/handle-ipv6-setting.
+        # For CrowdSec bouncer init script.
         bash \
         # For openresty.
         pcre \
         luajit \
         && \
-    # Install pip.
-    # NOTE: pip from the Alpine package repository is debundled, meaning that
-    #       its dependencies are part of the system-wide ones. This save a lot
-    #       of space, but these dependencies conflict with the ones required by
-    #       Certbot plugins. Thus, we need to manually install pip (with its
-    #       built-in dependencies). See:
-    #       https://pip.pypa.io/en/stable/development/vendoring-policy/
-    curl -# -L "https://bootstrap.pypa.io/get-pip.py" | python3 - --break-system-packages
+    true
 
 # Add files.
 COPY rootfs/ /
 COPY --from=nginx /tmp/openresty-install/ /
 COPY --from=npm /tmp/nginx-proxy-manager-install/ /
 COPY --from=bcrypt-tool /tmp/go/bin/bcrypt-tool /usr/bin/
-COPY --from=certbot /tmp/certbot-install/ /
+COPY --from=certbot /opt/certbot /opt/certbot
+COPY --from=certbot /tmp/certbot-symlinks /usr/local/bin
 COPY --from=cs-openresty-bouncer /tmp/crowdsec-openresty-bouncer-install/ /
 
 # Set internal environment variables.

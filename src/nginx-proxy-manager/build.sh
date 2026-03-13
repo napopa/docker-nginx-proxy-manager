@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 ROOTFS=/tmp/nginx-proxy-manager-install
 
-function log {
+log() {
     echo ">>> $*"
 }
 
@@ -69,30 +69,21 @@ curl -# -L -f ${NGINX_PROXY_MANAGER_URL} | tar xz --strip 1 -C /tmp/nginx-proxy-
 # Compile
 #
 
-# Set the NginxProxyManager version in both package manifests.
-for pkg_dir in frontend backend; do
-    python3 - "$pkg_dir" "$NGINX_PROXY_MANAGER_VERSION" <<'PY'
-import json
-import pathlib
-import sys
-
-pkg_dir, version = sys.argv[1:]
-path = pathlib.Path("/tmp/nginx-proxy-manager") / pkg_dir / "package.json"
-with path.open() as fh:
-    data = json.load(fh)
-data["version"] = version
-path.write_text(json.dumps(data, indent=4) + "\n")
-PY
-done
+# Set the NginxProxyManager version.
+sed -i "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\",/\"version\": \"${NGINX_PROXY_MANAGER_VERSION}\",/" /tmp/nginx-proxy-manager/frontend/package.json
+sed -i "s/\"version\": \"[0-9]\+\.[0-9]\+\.[0-9]\+\",/\"version\": \"${NGINX_PROXY_MANAGER_VERSION}\",/" /tmp/nginx-proxy-manager/backend/package.json
 
 log "Patching Nginx Proxy Manager backend..."
 PATCHES="
-    pip-install.patch
-    remove-certbot-dns-oci.patch
+    fix-legacy-sqlite3.patch
+    bcrypt.patch
+    certbot-dns-plugins.patch
+    certbot-command.patch
+    certbot-disable-plugin-install.patch
 "
 for P in $PATCHES; do
     echo "Applying $P..."
-    patch -p1 -d /tmp/nginx-proxy-manager < "$SCRIPT_DIR"/"$P"
+    patch --no-backup-if-mismatch -p1 -d /tmp/nginx-proxy-manager < "$SCRIPT_DIR"/"$P"
 done
 
 cp -r /tmp/nginx-proxy-manager /app
@@ -101,8 +92,8 @@ log "Building Nginx Proxy Manager frontend..."
 (
     export NODE_OPTIONS=--openssl-legacy-provider
     cd /app/frontend
-    yarn upgrade --wanted --ignore-engines
-    yarn install --network-timeout 100000 --ignore-engines
+    yarn install --network-timeout 100000
+    yarn locale-compile
     yarn build
     node-prune
 )
@@ -121,9 +112,11 @@ log "Building Nginx Proxy Manager backend..."
     cd /app/backend
     # Use NPM instead of yarn because yarn doesn't seem to be able to install
     # for another achitecture.  Note that NPM install should also use yarn.lock.
-    yarn upgrade --wanted --ignore-engines
     npm install --legacy-peer-deps --omit=dev --omit=optional --target_platform=linux --target_arch=$ARCH
     node-prune
+    # better-sqlite3 should be used, but some legacy/old installations might
+    # still use the sqlite3 module (configured in production.json).
+    #rm -rf /app/backend/node_modules/sqlite3
 )
 
 log "Installing Nginx Proxy Manager..."
@@ -140,11 +133,6 @@ mkdir \
 
 cp -rv /app/backend $ROOTFS/opt/nginx-proxy-manager
 cp -rv /app/frontend/dist $ROOTFS/opt/nginx-proxy-manager/frontend
-if [ -d /app/global ]; then
-    cp -rv /app/global $ROOTFS/opt/nginx-proxy-manager/global
-else
-    mkdir -p $ROOTFS/opt/nginx-proxy-manager/global
-fi
 
 mkdir $ROOTFS/opt/nginx-proxy-manager/bin
 cp -rv /tmp/nginx-proxy-manager/docker/rootfs/etc/nginx $ROOTFS/etc/
@@ -177,8 +165,8 @@ sed -i 's|listen 443 |listen 4443 |' $ROOTFS/opt/nginx-proxy-manager/templates/_
 sed -i 's|:443 |:4443 |' $ROOTFS/opt/nginx-proxy-manager/templates/_listen.conf
 sed -i 's|:443;|:4443;|' $ROOTFS/opt/nginx-proxy-manager/templates/_listen.conf
 
-# Fix nginx test command line.
-sed -i 's|-g "error_log off;"||' $ROOTFS/opt/nginx-proxy-manager/internal/nginx.js
+# Fix nginx test command line: "error_log off;" is not a valid nginx config.
+sed -i 's|"error_log off;"|"error_log /dev/null;"|' $ROOTFS/opt/nginx-proxy-manager/internal/nginx.js
 
 # Remove the `user` directive, since we want nginx to run as non-root.
 sed -i 's|user npm;|#user npm;|' $ROOTFS/etc/nginx/nginx.conf

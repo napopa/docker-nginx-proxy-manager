@@ -12,7 +12,7 @@ CROWDSEC_OPENRESTY_BOUNCER_URL="${1:-}"
 ROOTFS=/tmp/crowdsec-openresty-bouncer-install
 
 if [ -z "$CROWDSEC_OPENRESTY_BOUNCER_URL" ]; then
-    log "ERROR: bcrypt tool version missing."
+    log "ERROR: CrowdSec OpenResty Bouncer URL missing."
     exit 1
 fi
 

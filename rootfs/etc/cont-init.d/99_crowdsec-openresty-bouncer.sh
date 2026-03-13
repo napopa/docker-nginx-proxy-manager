@@ -10,12 +10,13 @@ echo "Deploy Crowdsec Openresty Bouncer.."
 if [ -n "${CROWDSEC_OPENRESTY_BOUNCER}" ]; then
    while IFS= read -r line
    do 
-      if ! [[ "$line" != "^#" ]] || [[ "$line" != "^\n" ]]; then
-        name=$(echo "$line" | cut -d "=" -f1)
-        value=$(echo "$line" | cut -d "=" -f2)
-        if grep -q "${name}" /defaults/crowdsec/crowdsec-openresty-bouncer.conf ; then
-          set_properties "${name}" "${value}" "/defaults/crowdsec/crowdsec-openresty-bouncer.conf"
-        fi
+      if [[ "$line" =~ ^# ]] || [[ -z "$line" ]]; then
+        continue
+      fi
+      name=$(echo "$line" | cut -d "=" -f1)
+      value=$(echo "$line" | cut -d "=" -f2)
+      if grep -q "${name}" /defaults/crowdsec/crowdsec-openresty-bouncer.conf ; then
+        set_properties "${name}" "${value}" "/defaults/crowdsec/crowdsec-openresty-bouncer.conf"
       fi
    done <<< "${CROWDSEC_OPENRESTY_BOUNCER}"
 else

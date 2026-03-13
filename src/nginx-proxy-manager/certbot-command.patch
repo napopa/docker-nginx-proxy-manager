@@ -52,7 +52,7 @@
 +		let certbotCommand = certbotDefaultCommand;
 +		if (certificate.meta.dns_challenge) {
 +			const dnsPlugin = dnsPlugins[certificate.meta.dns_provider];
-+			certbotCmd = `${certbotCommand}-${dnsPlugin.full_plugin_name}`;
++			certbotCommand = `${certbotCommand}-${dnsPlugin.full_plugin_name}`;
 +		}
 +
  		logger.info(

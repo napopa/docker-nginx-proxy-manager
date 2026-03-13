@@ -32,6 +32,10 @@ do
     chown app:app "$DIR"
 done
 
+# Create the Python cache directory.
+mkdir -p $PYTHONPYCACHEPREFIX
+chown app:app $PYTHONPYCACHEPREFIX
+
 # Create symlinks for logs.
 [ ! -L /config/log/log ] || rm /config/log/log
 ln -snf log /config/logs
@@ -45,9 +49,8 @@ do
     sed -i 's|/data/logs/|/config/log/|' "$file"
 done
 
-# Install default config.
+# Install default config files.
 [ -f /config/nginx/ip_ranges.conf ] || cp /defaults/ip_ranges.conf /config/nginx/
-[ -f /config/production.json ] || cp /defaults/production.json /config/
 
 # Make sure there is no migration lock held.
 # See https://github.com/jlesage/docker-nginx-proxy-manager/issues/4
@@ -56,11 +59,12 @@ if [ -f /config/database.sqlite ]; then
 fi
 
 # Generate the resolvers configuration file.
-if [ "$DISABLE_IPV6" == "true" ] || [ "$DISABLE_IPV6" == "on" ] || [ "$DISABLE_IPV6" == "1" ] || [ "$DISABLE_IPV6" == "yes" ];
-then
-    echo resolver "$(awk 'BEGIN{ORS=" "} $1=="nameserver" { sub(/%.*$/,"",$2); print ($2 ~ ":")? "["$2"]": $2}' /etc/resolv.conf) ipv6=off valid=10s;" > /etc/nginx/conf.d/include/resolvers.conf
-else
-    echo resolver "$(awk 'BEGIN{ORS=" "} $1=="nameserver" { sub(/%.*$/,"",$2); print ($2 ~ ":")? "["$2"]": $2}' /etc/resolv.conf) valid=10s;" > /etc/nginx/conf.d/include/resolvers.conf
+if is-bool-val-false "${DISABLE_RESOLVER:-0}"; then
+    if is-bool-val-true "${DISABLE_IPV6:-0}"; then
+        echo resolver "$(awk 'BEGIN{ORS=" "} $1=="nameserver" { sub(/%.*$/,"",$2); print ($2 ~ ":")? "["$2"]": $2}' /etc/resolv.conf) ipv6=off valid=10s;" > /etc/nginx/conf.d/include/resolvers.conf
+    else
+        echo resolver "$(awk 'BEGIN{ORS=" "} $1=="nameserver" { sub(/%.*$/,"",$2); print ($2 ~ ":")? "["$2"]": $2}' /etc/resolv.conf) valid=10s;" > /etc/nginx/conf.d/include/resolvers.conf
+    fi
 fi
 
 # Handle IPv6 settings.

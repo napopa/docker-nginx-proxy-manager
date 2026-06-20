@@ -105,7 +105,7 @@ for plugin in $(jq -r 'keys[]' "$CERTBOT_PLUGINS"); do
 
     log "Installing certbot plugin $name [$pkg_ver] ($installed_plugins/$total_plugins)..."
     case "$pkg_name:$pkg_ver" in
-        certbot-dns-mijn-host:~=0.0.4)
+        certbot-dns-mijn-host:~=0.0.4|certbot-dns-hostinger:~=0.1.3)
             echo "Skipping installation of incompatible certbot plugin '$name'."
             continue
             ;;

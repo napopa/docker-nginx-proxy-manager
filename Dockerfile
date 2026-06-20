@@ -122,6 +122,32 @@ RUN \
     set-cont-env APP_NAME "Nginx Proxy Manager" && \
     set-cont-env APP_VERSION "$NGINX_PROXY_MANAGER_VERSION" && \
     set-cont-env DOCKER_IMAGE_VERSION "$DOCKER_IMAGE_VERSION" && \
+    # The Synology build-context filesystem (ACL-backed) makes COPY drop the
+    # group/other read bit on everything under rootfs/ (files land as 0711),
+    # which breaks the jlesage init two ways: executable data-files get exec'd
+    # (DB_SQLITE_FILE crash-loop, nginx.dep -> "command failed (126)"), and
+    # scripts run by the non-root app user (startapp.sh, bin/ helpers) can't be
+    # read -> "Permission denied". Restore the exact git-tracked modes for the
+    # files we ship; base-image files keep theirs. No-op on a normal CI build.
+    chmod 755 /etc/cont-env.d /etc/cont-init.d /etc/services.d \
+              /etc/services.d/app /etc/services.d/cert_cleanup \
+              /etc/services.d/default /etc/services.d/nginx \
+              /opt/nginx-proxy-manager/bin \
+              /etc/cont-env.d/DEBUG \
+              /etc/cont-init.d/54-db-upgrade.sh \
+              /etc/cont-init.d/55-nginx-proxy-manager.sh \
+              /etc/cont-init.d/99_crowdsec-openresty-bouncer.sh \
+              /opt/nginx-proxy-manager/bin/handle-ipv6-setting \
+              /opt/nginx-proxy-manager/bin/lecleaner \
+              /opt/nginx-proxy-manager/bin/mysql2sqlite \
+              /opt/nginx-proxy-manager/bin/reset-password \
+              /startapp.sh && \
+    chmod 644 /etc/cont-env.d/DB_SQLITE_FILE \
+              /etc/cont-env.d/PYTHONPYCACHEPREFIX \
+              /etc/services.d/app/nginx.dep \
+              /etc/services.d/cert_cleanup/interval \
+              /etc/services.d/default/cert_cleanup.dep \
+              /etc/services.d/nginx/respawn && \
     true
 
 # Set public environment variables.
